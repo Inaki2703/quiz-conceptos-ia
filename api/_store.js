@@ -2,15 +2,15 @@ import { Redis } from "@upstash/redis";
 
 const GAME_KEY = "bankaool:game";
 const PLAYER_SET = "bankaool:player-ids";
-const HOST_TOKEN_KEY = "bankaool:host-token";
-
-let memory = null;
 
 function useMemory() {
-  if (!memory) {
-    memory = { game: { phase: "lobby", q: -1 }, players: new Map() };
+  if (!globalThis.__quizStore) {
+    globalThis.__quizStore = {
+      game: { phase: "lobby", q: -1 },
+      players: new Map(),
+    };
   }
-  return memory;
+  return globalThis.__quizStore;
 }
 
 function getRedis() {
@@ -59,33 +59,14 @@ export async function listPlayers() {
 export async function clearAll() {
   const redis = getRedis();
   if (!redis) {
-    memory = null;
+    globalThis.__quizStore = undefined;
     return;
   }
   const ids = await redis.smembers(PLAYER_SET);
   if (ids.length) {
     await redis.del(...ids.map((id) => `${PLAYER_SET}:${id}`));
   }
-  await redis.del(PLAYER_SET, GAME_KEY, HOST_TOKEN_KEY);
-}
-
-export async function getHostToken() {
-  const redis = getRedis();
-  if (!redis) return useMemory().hostToken || null;
-  return (await redis.get(HOST_TOKEN_KEY)) || null;
-}
-
-export async function setHostToken(token) {
-  const redis = getRedis();
-  if (!redis) {
-    useMemory().hostToken = token;
-    return;
-  }
-  await redis.set(HOST_TOKEN_KEY, token);
-}
-
-export function hasBackend() {
-  return Boolean(getRedis()) || Boolean(memory);
+  await redis.del(PLAYER_SET, GAME_KEY);
 }
 
 export function usingMemory() {

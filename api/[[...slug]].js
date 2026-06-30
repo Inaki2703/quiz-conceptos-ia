@@ -1,4 +1,4 @@
-import { handleApi } from "../router.js";
+import { handleApi } from "./router.js";
 
 export default async function handler(req, res) {
   let body = null;
