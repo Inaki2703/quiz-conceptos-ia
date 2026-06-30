@@ -28,14 +28,14 @@ export const hasStore = () => true;
 
 export async function getHostConfig() {
   try {
-    return await req("/host/config");
+    return await req("/host-config");
   } catch {
     return { passwordRequired: false };
   }
 }
 
 export async function claimHost(password) {
-  const data = await req("/host/claim", {
+  const data = await req("/host-claim", {
     method: "POST",
     body: JSON.stringify(password ? { password } : {}),
   });

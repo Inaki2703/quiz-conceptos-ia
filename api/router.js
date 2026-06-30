@@ -29,11 +29,11 @@ export async function handleApi(req, res, body) {
   if (method === "OPTIONS") return apiResponse(res, 204);
 
   try {
-    if (url === "/api/host/config" && method === "GET") {
+    if ((url === "/api/host/config" || url === "/api/host-config") && method === "GET") {
       return apiResponse(res, 200, hostConfig());
     }
 
-    if (url === "/api/host/claim" && method === "POST") {
+    if ((url === "/api/host/claim" || url === "/api/host-claim") && method === "POST") {
       const result = await claimHost(body?.password);
       return apiResponse(res, 200, result);
     }
