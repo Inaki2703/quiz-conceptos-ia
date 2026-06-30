@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: quiz-conceptos-ia
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: HOST_PASSWORD
+        sync: false
