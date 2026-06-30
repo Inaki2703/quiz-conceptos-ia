@@ -6,7 +6,7 @@ const PLAYER_SET = "bankaool:player-ids";
 function useMemory() {
   if (!globalThis.__quizStore) {
     globalThis.__quizStore = {
-      game: { phase: "lobby", q: -1 },
+      game: { phase: "lobby", q: -1, rev: 0 },
       players: new Map(),
     };
   }
@@ -14,26 +14,36 @@ function useMemory() {
 }
 
 function getRedis() {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
   if (!url || !token) return null;
   return new Redis({ url, token });
+}
+
+export function hasSharedStore() {
+  return Boolean(getRedis());
+}
+
+function stampGame(g) {
+  return { ...g, rev: Date.now(), updatedAt: Date.now() };
 }
 
 export async function readGame() {
   const redis = getRedis();
   if (!redis) return useMemory().game;
   const g = await redis.get(GAME_KEY);
-  return g || { phase: "lobby", q: -1 };
+  return g || { phase: "lobby", q: -1, rev: 0 };
 }
 
 export async function writeGame(g) {
+  const game = stampGame(g);
   const redis = getRedis();
   if (!redis) {
-    useMemory().game = g;
-    return;
+    useMemory().game = game;
+    return game;
   }
-  await redis.set(GAME_KEY, g);
+  await redis.set(GAME_KEY, game);
+  return game;
 }
 
 export async function writePlayer(id, p) {
@@ -54,6 +64,11 @@ export async function listPlayers() {
   const keys = ids.map((id) => `${PLAYER_SET}:${id}`);
   const rows = await redis.mget(...keys);
   return rows.filter(Boolean);
+}
+
+export async function readSync() {
+  const [game, players] = await Promise.all([readGame(), listPlayers()]);
+  return { game, players, serverTime: Date.now(), shared: hasSharedStore() };
 }
 
 export async function clearAll() {

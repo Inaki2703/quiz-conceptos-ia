@@ -1,4 +1,4 @@
-import { readGame, writeGame, writePlayer, listPlayers, clearAll } from "./_store.js";
+import { readGame, writeGame, writePlayer, listPlayers, clearAll, readSync } from "./_store.js";
 import { claimHost, hostConfig, requireHost } from "./_host.js";
 
 const CORS = {
@@ -38,12 +38,16 @@ export async function handleApi(req, res, body) {
       return apiResponse(res, 200, result);
     }
 
+    if (url === "/api/sync" && method === "GET") {
+      return apiResponse(res, 200, await readSync());
+    }
+
     if (url === "/api/game") {
       if (method === "GET") return apiResponse(res, 200, await readGame());
       if (method === "PUT") {
         await requireHost(req);
-        await writeGame(body);
-        return apiResponse(res, 200, { ok: true });
+        const saved = await writeGame(body);
+        return apiResponse(res, 200, { ok: true, game: saved });
       }
     }
 

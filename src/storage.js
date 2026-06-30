@@ -1,5 +1,6 @@
 const API = "/api";
 const HOST_KEY = "quiz:host-token";
+const POLL_MS = 250;
 
 function getHostToken() {
   try { return sessionStorage.getItem(HOST_KEY); } catch { return null; }
@@ -25,6 +26,7 @@ async function req(path, opts = {}) {
 }
 
 export const hasStore = () => true;
+export const SYNC_POLL_MS = POLL_MS;
 
 export async function getHostConfig() {
   try {
@@ -43,16 +45,22 @@ export async function claimHost(password) {
   return data;
 }
 
-export async function readGame() {
+export async function fetchSync() {
   try {
-    return await req(`/game?_=${Date.now()}`);
+    return await req(`/sync?_=${Date.now()}`);
   } catch {
     return null;
   }
 }
 
+export async function readGame() {
+  const s = await fetchSync();
+  return s?.game ?? null;
+}
+
 export async function writeGame(g) {
-  await req("/game", { method: "PUT", body: JSON.stringify(g) });
+  const res = await req("/game", { method: "PUT", body: JSON.stringify(g) });
+  return res?.game ?? g;
 }
 
 export async function writePlayer(id, p) {
@@ -63,7 +71,7 @@ export async function writePlayer(id, p) {
 
 export async function listPlayers() {
   try {
-    return (await req("/players")) || [];
+    return (await req(`/players?_=${Date.now()}`)) || [];
   } catch {
     return [];
   }
@@ -72,6 +80,15 @@ export async function listPlayers() {
 export async function clearAll() {
   try {
     await req("/players", { method: "DELETE" });
-    await writeGame({ phase: "lobby", q: -1 });
+    await writeGame({ phase: "lobby", q: -1, rev: 0 });
   } catch {}
+}
+
+export function gameChanged(prev, next) {
+  if (!next) return false;
+  if (!prev) return true;
+  return prev.rev !== next.rev
+    || prev.phase !== next.phase
+    || prev.q !== next.q
+    || prev.deadlineAt !== next.deadlineAt;
 }

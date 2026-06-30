@@ -1,6 +1,7 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "regions": ["iad1"],
   "functions": {
     "api/[...slug].js": {
       "maxDuration": 10

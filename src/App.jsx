@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { readGame, writeGame, writePlayer, listPlayers, clearAll, claimHost, getHostConfig } from "./storage.js";
+import { writeGame, writePlayer, listPlayers, clearAll, claimHost, getHostConfig } from "./storage.js";
+import { useSync } from "./useSync.js";
 
 /* ----------------------------- Datos ----------------------------- */
 const QUESTIONS = [
@@ -252,33 +253,18 @@ function HostGate({ onExit }) {
 
 /* ----------------------------- Host ----------------------------- */
 function Host({ onExit }) {
-  const [game, setGame] = useState({ phase: "lobby", q: -1 });
-  const [players, setPlayers] = useState([]);
-  const gameRef = useRef(game);
-  gameRef.current = game;
-
-  // recuperar estado + sondeo de jugadores
-  useEffect(() => {
-    let alive = true;
-    (async () => { const g = await readGame(); if (alive && g) setGame(g); })();
-    const poll = async () => {
-      const ps = await listPlayers();
-      if (alive) setPlayers(ps);
-    };
-    poll();
-    const t = setInterval(poll, 1000);
-    return () => { alive = false; clearInterval(t); };
-  }, []);
+  const { game, setGame, players, setPlayers, gameRef, sharedStore } = useSync({ enabled: true, withPlayers: true });
 
   const push = useCallback(async (g) => {
-    setGame(g);
     try {
-      await writeGame(g);
+      const saved = await writeGame(g);
+      gameRef.current = saved;
+      setGame(saved);
     } catch (e) {
       if (e.status === 401) alert("Sesión de host expirada. Vuelve a entrar como host.");
       else throw e;
     }
-  }, []);
+  }, [setGame, gameRef]);
 
   // auto-reveal al terminar el temporizador
   useEffect(() => {
@@ -301,7 +287,11 @@ function Host({ onExit }) {
   };
   const reset = async () => {
     if (!window.confirm("¿Reiniciar el juego y borrar a los jugadores?")) return;
-    await clearAll(); setGame({ phase: "lobby", q: -1 }); setPlayers([]);
+    await clearAll();
+    const fresh = { phase: "lobby", q: -1, rev: Date.now() };
+    gameRef.current = fresh;
+    setGame(fresh);
+    setPlayers([]);
   };
 
   const answeredCount = (qi) => players.filter((p) => p.answers && p.answers[String(qi)] !== undefined).length;
@@ -309,6 +299,13 @@ function Host({ onExit }) {
   return (
     <div>
       <TopBar label="Vista host" onExit={onExit} onReset={reset} />
+
+      {sharedStore === false && (
+        <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 10, background: C.yellow,
+          color: C.ink, fontSize: 13, fontWeight: 600 }}>
+          Sincronización limitada — conecta Upstash Redis en Vercel para el evento en vivo.
+        </div>
+      )}
 
       {game.phase === "lobby" && (
         <div>
@@ -428,25 +425,10 @@ function Player() {
   const [name, setName] = useState("");
   const [joined, setJoined] = useState(false);
   const [answers, setAnswers] = useState({});
-  const [game, setGame] = useState({ phase: "lobby", q: -1 });
+  const { game, gameRef } = useSync({ enabled: joined, withPlayers: false });
   const answersRef = useRef(answers); answersRef.current = answers;
   const nameRef = useRef(name); nameRef.current = name;
   const [, tick] = useState(0);
-
-  // sondeo del estado de juego (rápido para reflejar cambios del host)
-  useEffect(() => {
-    if (!joined) return;
-    let alive = true;
-    const poll = async () => {
-      const g = await readGame();
-      if (alive && g) setGame(g);
-    };
-    poll();
-    const t = setInterval(poll, 400);
-    const onVis = () => { if (document.visibilityState === "visible") poll(); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => { alive = false; clearInterval(t); document.removeEventListener("visibilitychange", onVis); };
-  }, [joined]);
 
   useEffect(() => {
     if (!joined || game.phase !== "question" || !game.deadlineAt) return;
@@ -458,7 +440,6 @@ function Player() {
     const n = name.trim(); if (!n) return;
     await writePlayer(id, { id, name: n, answers: {}, ts: Date.now() });
     setJoined(true);
-    const g = await readGame(); if (g) setGame(g);
   };
 
   const answer = async (i) => {
