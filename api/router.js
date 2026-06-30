@@ -6,9 +6,13 @@ const CORS = {
   "Access-Control-Allow-Methods": "GET, PUT, POST, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
+const NO_CACHE = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+  Pragma: "no-cache",
+};
 
 export function apiResponse(res, status, body, extraHeaders = {}) {
-  const headers = { "Content-Type": "application/json", ...CORS, ...extraHeaders };
+  const headers = { "Content-Type": "application/json", ...CORS, ...NO_CACHE, ...extraHeaders };
   if (typeof res.writeHead === "function") {
     res.writeHead(status, headers);
     res.end(body === undefined ? "" : JSON.stringify(body));

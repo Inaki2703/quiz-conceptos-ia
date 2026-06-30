@@ -12,7 +12,7 @@ async function req(path, opts = {}) {
   const headers = { "Content-Type": "application/json", ...opts.headers };
   const token = getHostToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const r = await fetch(`${API}${path}`, { ...opts, headers });
+  const r = await fetch(`${API}${path}`, { cache: "no-store", ...opts, headers });
   const text = await r.text();
   const data = text ? JSON.parse(text) : null;
   if (!r.ok) {
@@ -45,7 +45,7 @@ export async function claimHost(password) {
 
 export async function readGame() {
   try {
-    return await req("/game");
+    return await req(`/game?_=${Date.now()}`);
   } catch {
     return null;
   }

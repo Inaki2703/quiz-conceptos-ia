@@ -433,12 +433,19 @@ function Player() {
   const nameRef = useRef(name); nameRef.current = name;
   const [, tick] = useState(0);
 
-  // sondeo del estado de juego
+  // sondeo del estado de juego (rápido para reflejar cambios del host)
   useEffect(() => {
     if (!joined) return;
     let alive = true;
-    const t = setInterval(async () => { const g = await readGame(); if (alive && g) setGame(g); }, 1500);
-    return () => { alive = false; clearInterval(t); };
+    const poll = async () => {
+      const g = await readGame();
+      if (alive && g) setGame(g);
+    };
+    poll();
+    const t = setInterval(poll, 400);
+    const onVis = () => { if (document.visibilityState === "visible") poll(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { alive = false; clearInterval(t); document.removeEventListener("visibilitychange", onVis); };
   }, [joined]);
 
   useEffect(() => {
