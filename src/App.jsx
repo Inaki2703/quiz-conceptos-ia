@@ -286,12 +286,15 @@ function Host({ onExit }) {
     else push({ phase: "question", q: game.q + 1, deadlineAt: deadlineForQuestion() });
   };
   const reset = async () => {
-    if (!window.confirm("¿Reiniciar el juego y borrar a los jugadores?")) return;
-    await clearAll();
-    const fresh = { phase: "lobby", q: -1, rev: Date.now() };
-    gameRef.current = fresh;
-    setGame(fresh);
-    setPlayers([]);
+    if (!window.confirm("¿Reiniciar el juego y borrar a todos los participantes?")) return;
+    try {
+      const fresh = await clearAll();
+      gameRef.current = fresh;
+      setGame(fresh);
+      setPlayers([]);
+    } catch (e) {
+      if (e.status === 401) alert("Sesión de host expirada. Vuelve a entrar como host.");
+    }
   };
 
   const answeredCount = (qi) => players.filter((p) => p.answers && p.answers[String(qi)] !== undefined).length;
@@ -429,6 +432,17 @@ function Player() {
   const answersRef = useRef(answers); answersRef.current = answers;
   const nameRef = useRef(name); nameRef.current = name;
   const [, tick] = useState(0);
+  const resetIdRef = useRef(null);
+
+  // Al reiniciar sesión: limpiar respuestas locales y volver a registrarse en el servidor
+  useEffect(() => {
+    if (!joined || !game.resetId) return;
+    if (resetIdRef.current !== game.resetId) {
+      setAnswers({});
+      writePlayer(id, { id, name: nameRef.current, answers: {}, ts: Date.now() });
+      resetIdRef.current = game.resetId;
+    }
+  }, [joined, game.resetId, id]);
 
   useEffect(() => {
     if (!joined || game.phase !== "question" || !game.deadlineAt) return;

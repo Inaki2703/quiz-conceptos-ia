@@ -59,8 +59,8 @@ export async function handleApi(req, res, body) {
       }
       if (method === "DELETE") {
         await requireHost(req);
-        await clearAll();
-        return apiResponse(res, 200, { ok: true });
+        const game = await clearAll();
+        return apiResponse(res, 200, { ok: true, game });
       }
     }
 

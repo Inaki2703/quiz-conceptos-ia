@@ -78,10 +78,8 @@ export async function listPlayers() {
 }
 
 export async function clearAll() {
-  try {
-    await req("/players", { method: "DELETE" });
-    await writeGame({ phase: "lobby", q: -1, rev: 0 });
-  } catch {}
+  const res = await req("/players", { method: "DELETE" });
+  return res?.game ?? { phase: "lobby", q: -1, resetId: Date.now() };
 }
 
 export function gameChanged(prev, next) {

@@ -72,16 +72,22 @@ export async function readSync() {
 }
 
 export async function clearAll() {
+  const resetId = Date.now();
+  const fresh = { phase: "lobby", q: -1, resetId };
   const redis = getRedis();
   if (!redis) {
-    globalThis.__quizStore = undefined;
-    return;
+    globalThis.__quizStore = {
+      game: stampGame(fresh),
+      players: new Map(),
+    };
+    return stampGame(fresh);
   }
   const ids = await redis.smembers(PLAYER_SET);
   if (ids.length) {
     await redis.del(...ids.map((id) => `${PLAYER_SET}:${id}`));
   }
-  await redis.del(PLAYER_SET, GAME_KEY);
+  await redis.del(PLAYER_SET);
+  return writeGame(fresh);
 }
 
 export function usingMemory() {
